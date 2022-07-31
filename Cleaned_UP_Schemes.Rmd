@@ -1,0 +1,91 @@
+---
+title: "Cleaned_UP_Schemes"
+author: "Rodoshee Das"
+output:
+  html_document: 
+    code_folding: hide
+    anchor_sections: FALSE
+    toc: yes
+    df_print: tibble
+  pdf_document: default
+  word_document: default
+---
+In this file we will merge and clean the datasheets to get a final dataset of all the classified educational expenditure schemes in Uttar Pradesh. 
+
+[haq_unique_schemes](https://docs.google.com/spreadsheets/d/1lB9C6dZIJZErvjn4wwSXCK_qtyAOP9JY/edit?usp=sharing&ouid=107918389837609878151&rtpof=true&sd=true): containing the classification of the types of schemes & mode of benefit of transfer
+[haq_data_renamed](https://docs.google.com/spreadsheets/d/1NxPfBjU9QD2y8f-EEAX9TMgOuK1T3err/edit?usp=sharing&ouid=107918389837609878151&rtpof=true&sd=true): containing all the schemes including the unclassified ones. 
+
+
+
+```{r message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(comment = NA)
+```
+
+
+# Load the two datasheets and libraries.
+
+```{r}
+library(readxl)
+library(dplyr)
+library(DT)
+library(writexl) 
+haq_data_renamed <- read_excel("C:/Users/Admin/Downloads/CivicDataLab/tasks/haq_data_renamed.xlsx")
+View(haq_data_renamed)
+haq_unique_schemes <- read_excel("C:/Users/Admin/Downloads/CivicDataLab/tasks/haq_unique_schemes.xlsx")
+View(haq_unique_schemes)
+
+```
+
+
+# Load the dplyr package and merge the two datasheets based on the unique scheme codes
+
+```{r}
+library(dplyr)
+haq_final <- merge(haq_data_renamed,haq_unique_schemes,by="scheme_code")
+
+```
+
+# remove the columns which aren't required for further analysis.
+
+```{r}
+haq_final$major_head <- NULL
+haq_final$`sub-major_head`<- NULL
+haq_final$...11 <- NULL
+haq_final$`Classification of Schemes`<- NULL
+haq_final$scheme_name.y <- NULL
+haq_final$scheme_name.x <- NULL
+haq_final$grant_number.y <- NULL
+haq_final$grant_name.y <- NULL
+```
+
+#omit all the null values
+
+```{r}
+haq_final <- na.omit(haq_final)
+```
+
+# rearrange the columns for clarity of data.
+
+```{r}
+col_order <- c("scheme_code","Google Translation","Classification of the type of Scheme","Mode of Benefit Transfer","scheme_allotment","scheme_expenditure","scheme_utilisation","district_name","ddo_name","grant_number.x","fiscal_year","district_number","ddo_number","grant_name.x","division_name")
+
+haq_final <- haq_final[,col_order]
+
+```
+
+#give the columns a proper name.
+```{r}
+colnames(haq_final)[which(names(haq_final) == "Google Translation")] <- "scheme_name"
+colnames(haq_final)[which(names(haq_final) == "grant_number.x")] <- "grant_number"
+colnames(haq_final)[which(names(haq_final) == "grant_name.x")] <- "grant_name"
+datatable(haq_final)
+```
+
+
+# download the cleaned data frame in an excel datasheet.
+
+```{r}
+write_xlsx(haq_final,"C:/Users/Admin/Downloads/haq_final.xlsx")
+
+```
+
