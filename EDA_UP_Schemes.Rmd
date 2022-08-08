@@ -1,0 +1,441 @@
+---
+title: "Girl Education Spending Tracker | CivicDataLab"
+author: "Rodoshee Das"
+date: "Analysis of all the classified schemes to understand the state of girl-child education in Uttar Pradesh, India"
+output:
+  html_document: 
+    code_folding: hide
+    anchor_sections: FALSE
+    toc: yes
+    df_print: tibble
+  pdf_document: default
+  word_document: default
+---
+
+```{r message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(comment = NA)
+```
+
+
+## Primary Data Cleaning and merging
+
+In this file we will merge and clean the datasheets to get a final dataset of all the classified educational expenditure schemes in Uttar Pradesh. You can check ["Cleaning_UP_Schemes.md"](https://github.com/CivicDataLab/UPFiscalData_SchemeAnalysis/blob/b808c65ade272973adcff62c7063d6fbee512f55/Cleaned_UP_Schemes.Rmd)file in the repository.
+
+### We have used two datasets for this:
+
+[haq_unique_schemes](https://docs.google.com/spreadsheets/d/1lB9C6dZIJZErvjn4wwSXCK_qtyAOP9JY/edit?usp=sharing&ouid=107918389837609878151&rtpof=true&sd=true): containing the classification of the types of schemes & mode of benefit of transfer
+
+
+[haq_data_renamed](https://docs.google.com/spreadsheets/d/1NxPfBjU9QD2y8f-EEAX9TMgOuK1T3err/edit?usp=sharing&ouid=107918389837609878151&rtpof=true&sd=true): containing all the schemes including the unclassified ones. 
+
+
+## Exploratory Analysis of the classified schemes 
+
+In this file, we did an exploratory data analysis of the dataset obtained from "Cleaned_UP_Schemes",i.e,haq_final.
+
+Here, you can find interactive datatables and bar charts exploring:
+
+1. Share of each of the classification of the type of scheme in the total expenditure.
+2. Compare the expenditure of each district on different types of schemes.
+3. Identify schemes with expenditure of zero.
+4. Identify the grant type with highest amount of expenditure.
+5. Identify the observations(/schemes) with the highest and lowest expenditure.
+6. Identify the observations(/schemes) with the highest and lowest allotment.
+7. Explore the share of each of the mode of benefit of transfer in the total expenditure.
+8. Compare the expenditure of each district on modes of benefit of transfer.
+
+
+### Loading the dataset.
+
+ 88343 Observations with 15 variables(both categorical and numeric).
+
+You can check the dataset ["haq_final.xlsx"](https://github.com/CivicDataLab/UPFiscalData_SchemeAnalysis/blob/2c6865f6b1f44f424cf3ba6694ed949f131c7b16/haq_final.xlsx) in the repository.
+
+```{r,results='hide',message=FALSE,warning=FALSE}
+library(readxl)
+setwd("C:/Users/Admin/Downloads/CivicDataLab/tasks")
+haq_final <- read_excel("haq_final.xlsx")
+
+library(dplyr)
+library(ggplot2)
+library(DT)
+library(forcats)
+
+```
+
+
+### Exploring the share of expenditure in each of the types of scheme.
+
+```{r}
+
+total_exp <- sum(haq_final$scheme_expenditure)
+
+for(i in unique(haq_final$`Classification of the type of Scheme`)){
+  df <- paste("Sch",i,sep = "_")
+  assign(df, haq_final[haq_final$`Classification of the type of Scheme`==i,])
+}
+
+exp_boys <- sum(`Sch_Benefits boy students exclusively`$scheme_expenditure)
+exp_girls <- sum(`Sch_Benefits girl students exclusively`$scheme_expenditure)
+exp_both_directly <- sum(`Sch_Benefits both boy and girl students directly`$scheme_expenditure)
+exp_both_indirectly <- sum(`Sch_Benefits both boy and girl students indirectly`$scheme_expenditure)
+
+Type_of_scheme <- c("Benefits boys only", "Benefits girls only", "Benefits both directly", "Benefits both indirectly")
+Share_of_the_scheme <- c(exp_boys/total_exp*100,exp_girls/total_exp*100,exp_both_directly/total_exp*100,exp_both_indirectly/total_exp*100)
+share_schemetype <- data.frame(Type_of_scheme,Share_of_the_scheme)
+share_schemetype$Share_of_the_scheme <- round(share_schemetype$Share_of_the_scheme, digits = 2)
+
+colnames(share_schemetype)[which(names(share_schemetype) == "Share_of_the_scheme")] <- "Expenditure(in %)"
+colnames(share_schemetype)[which(names(share_schemetype) == "Type_of_scheme")] <- "Scheme Type"
+
+datatable(share_schemetype)
+
+ggplot(data = share_schemetype, aes(x = Type_of_scheme, y = Share_of_the_scheme)) + geom_bar(width = 0.25 , stat = 'identity',fill="blue") + theme(title = "width = 0.25") + theme_classic()+geom_text(aes(label=round(Share_of_the_scheme,2)), nudge_y = 6)+labs(title="Share of expenditure in each of the types of schemes",x ="Scheme Type", y = "Expenditure(in %)")+coord_flip()
+
+
+```
+
+
+### Comparing expenditure across districts on the basis of the types of scheme.
+
+#### Schemes which benefit girls exclusively.
+
+```{r}
+onlygirls <- aggregate(x = `Sch_Benefits girl students exclusively`$scheme_expenditure,
+                       by= list(`Sch_Benefits girl students exclusively`$district_number,`Sch_Benefits girl students exclusively`$district_name),
+                       FUN=sum)
+
+colnames(onlygirls)[which(names(onlygirls) == "Group.1")] <- "District No."
+colnames(onlygirls)[which(names(onlygirls) == "Group.2")] <- "District Name"
+colnames(onlygirls)[which(names(onlygirls) == "x")] <- "Expenditure"
+
+totalexp_onlygirls <- sum(onlygirls$Expenditure)
+share_exp = (onlygirls$Expenditure)/totalexp_onlygirls*100
+onlygirls <- cbind(onlygirls, share_exp)
+onlygirls$share_exp <- round(onlygirls$share_exp, digits = 2)
+
+colnames(onlygirls)[which(names(onlygirls) == "share_exp")] <- "Expenditure(in %)"
+
+datatable(onlygirls)
+
+```
+
+#### Schemes which benefit boys exclusively.
+
+```{r}
+onlyboys <- aggregate(x = `Sch_Benefits boy students exclusively`$scheme_expenditure,
+                      by= list(`Sch_Benefits boy students exclusively`$district_number,`Sch_Benefits boy students exclusively`$district_name),
+                      FUN=sum)
+colnames(onlyboys)[which(names(onlyboys) == "Group.1")] <- "District No."
+colnames(onlyboys)[which(names(onlyboys) == "Group.2")] <- "District Name"
+colnames(onlyboys)[which(names(onlyboys) == "x")] <- "Expenditure"
+
+totalexp_onlyboys <- sum(onlyboys$Expenditure)
+share_exp = (onlyboys$Expenditure)/totalexp_onlyboys*100
+onlyboys <- cbind(onlyboys, share_exp)
+onlyboys$share_exp <- round(onlyboys$share_exp, digits = 2)
+colnames(onlyboys)[which(names(onlyboys) == "share_exp")] <- "Expenditure(in %)"
+
+datatable(onlyboys)
+```
+
+#### Schemes which benefit both boys and girls directly.
+
+
+```{r}
+bothdirectly <- aggregate(x = `Sch_Benefits both boy and girl students directly`$scheme_expenditure,
+                          by= list(`Sch_Benefits both boy and girl students directly`$district_number,`Sch_Benefits both boy and girl students directly`$district_name),
+                          FUN=sum)
+
+colnames(bothdirectly)[which(names(bothdirectly) == "Group.1")] <- "District No."
+colnames(bothdirectly)[which(names(bothdirectly) == "Group.2")] <- "District Name"
+colnames(bothdirectly)[which(names(bothdirectly) == "x")] <- "Expenditure"
+
+totalexp_bothdirectly <- sum(bothdirectly$Expenditure)
+share_exp = (bothdirectly$Expenditure)/totalexp_bothdirectly*100
+bothdirectly <- cbind(bothdirectly, share_exp)
+bothdirectly$share_exp <- round(bothdirectly$share_exp, digits = 2)
+colnames(bothdirectly)[which(names(bothdirectly) == "share_exp")] <- "Expenditure(in %)"
+datatable(bothdirectly)
+```
+
+#### Schemes which benefit both boys and girls indirectly.
+
+
+```{r}
+bothindirectly <- aggregate(x = `Sch_Benefits both boy and girl students indirectly`$scheme_expenditure,
+                            by= list(`Sch_Benefits both boy and girl students indirectly`$district_number,`Sch_Benefits both boy and girl students indirectly`$district_name),
+                            FUN=sum)
+colnames(bothindirectly)[which(names(bothindirectly) == "Group.1")] <- "District No."
+colnames(bothindirectly)[which(names(bothindirectly) == "Group.2")] <- "District Name"
+colnames(bothindirectly)[which(names(bothindirectly) == "x")] <- "Expenditure"
+
+totalexp_bothindirectly <- sum(bothindirectly$Expenditure)
+share_exp = (bothindirectly$Expenditure)/totalexp_bothindirectly*100
+bothindirectly <- cbind(bothindirectly, share_exp)
+bothindirectly$share_exp <- round(bothindirectly$share_exp, digits = 2)
+colnames(bothindirectly)[which(names(bothindirectly) == "x")] <- "Expenditure(in %)"
+datatable(bothindirectly)
+
+```
+
+### Exploring the share of expenditure in each of the types of grants.
+
+```{r}
+for(i in unique(haq_final$grant_number)){
+  df1 <- paste("Grant",i,sep = "_")
+  assign(df1, haq_final[haq_final$grant_number==i,])
+}
+
+exp_grant14 <- sum(Grant_14$scheme_expenditure)
+exp_grant92 <- sum(Grant_92$scheme_expenditure)
+exp_grant22 <- sum(Grant_22$scheme_expenditure)
+exp_grant75 <- sum(Grant_75$scheme_expenditure)
+exp_grant72 <- sum(Grant_72$scheme_expenditure)
+exp_grant71 <- sum(Grant_71$scheme_expenditure)
+exp_grant47 <- sum(Grant_47$scheme_expenditure)
+exp_grant62 <- sum(Grant_62$scheme_expenditure)
+exp_grant83 <- sum(Grant_83$scheme_expenditure)
+exp_grant81 <- sum(Grant_81$scheme_expenditure)
+exp_grant48 <- sum(Grant_48$scheme_expenditure)
+exp_grant39 <- sum(Grant_39$scheme_expenditure)
+
+
+share_of_the_grants <- c(exp_grant14/total_exp*100,exp_grant22/total_exp*100,
+                         exp_grant39/total_exp*100,exp_grant47/total_exp*100,
+                         exp_grant48/total_exp*100,exp_grant62/total_exp*100,
+                         exp_grant71/total_exp*100,exp_grant72/total_exp*100,
+                         exp_grant75/total_exp*100,exp_grant81/total_exp*100,
+                         exp_grant83/total_exp*100,exp_grant92/total_exp*100)
+
+
+grant_no. <- c("14", "22","39", "47", "48", "62","71","72", "75", "81", "83","92")
+
+
+grant_name <- c(unique(Grant_14$grant_name),unique(Grant_22$grant_name),unique(Grant_39$grant_name),                                                               unique(Grant_47$grant_name),unique(Grant_48$grant_name),unique(Grant_62$grant_name),
+                                                                               unique(Grant_71$grant_name),unique(Grant_72$grant_name),unique(Grant_75$grant_name),
+                
+unique(Grant_81$grant_name),unique(Grant_83$grant_name),unique(Grant_92$grant_name))
+
+grant_comparison <- data.frame(grant_no.,grant_name,share_of_the_grants)
+
+grant_comparison$share_of_the_grants <- round(grant_comparison$share_of_the_grants,digits = 2)
+
+colnames(grant_comparison)[which(names(grant_comparison) == "grant_name")] <- "Grant Name"  
+colnames(grant_comparison)[which(names(grant_comparison) == "grant_no.")] <- "Grant No."
+colnames(grant_comparison)[which(names(grant_comparison) == "share_of_the_grants")] <- "Expenditure(in %)"
+datatable(grant_comparison)
+
+ggplot(data = grant_comparison, aes(x = reorder(grant_no.,share_of_the_grants), y = share_of_the_grants))+geom_bar(width = 0.25 , stat = 'identity',fill="pink")+theme(title = "width = 0.25", axis.text = element_text(size = 0))+theme_classic()+coord_flip()+ geom_text(aes(label = grant_name), nudge_y=30) +geom_text(aes(label=round(share_of_the_grants,2)), nudge_y = 60)+labs(title="Share of expenditure in each of the types of grants",x ="Grant No.", y = "Expenditure(in %)")+theme(axis.text.x = element_blank())
+```
+
+
+
+### Identify the observations(/schemes) with the lowest expenditure.
+
+```{r,warning=FALSE}
+lowest_exp <- haq_final[(haq_final$scheme_expenditure == 0), ]
+datatable(lowest_exp)
+```
+
+```{r, results='hide'}
+unique(lowest_exp$scheme_utilisation) 
+# can scheme utilization be anything other than 0 if expenditure is 0 !?    
+```
+
+### Check the levels of grant type and identify grant(s) without lowest(i.e,zero) expenditure.
+
+#### Grants which have zero expenditure.
+```{r}
+unique(lowest_exp$grant_number)
+```
+
+#### So, take a look at cultural affairs schemes with grant number 92 which is missing above.
+```{r}
+
+culturalaffair <- haq_final[(haq_final$grant_name =="CULTURAL AFFAIR"),]
+datatable(culturalaffair)
+
+```
+
+Indeed, grant number 92(Cultural affairs) is the only one which doesn't have any zero expenditure scheme. None of them directly benefits boys and girls, all of them are in Lucknow, only one in Gorakhpur. Maximum scheme utilization is 100%. Their mode of benefit of transfer is infrastructure.
+
+
+### Scheme(s) which had the lowest amount alloted. 
+
+```{r, results='hide'}
+min(haq_final$scheme_allotment)
+lowest_allot <- haq_final[(haq_final$scheme_allotment < 0), ]
+datatable(lowest_allot)
+
+#negative allotment amount!?
+```
+
+### Top 10 schemes with highest amount of allocation.
+
+```{r}
+haq_final <- haq_final[with(haq_final,order(-haq_final$scheme_allotment)),]
+
+Top10_schemes_allotement <- haq_final[1:10,]
+datatable(Top10_schemes_allotement)
+```
+
+### Top 10 schemes with the highest amount of expenditure.
+```{r}
+haq_final <- haq_final[with(haq_final,order(-haq_final$scheme_expenditure)),]
+
+Top10_schemes_expenditure <- haq_final[1:10,]
+datatable(Top10_schemes_expenditure)
+```
+
+### Explore the share of total expenditure in each of the mode of benefit of transfer.
+
+```{r}
+total_exp <- sum(haq_final$scheme_expenditure)
+
+for(i in unique(haq_final$`Mode of Benefit Transfer`)){
+  df <- paste(i)
+  assign(df, haq_final[haq_final$`Mode of Benefit Transfer`==i,])
+}
+
+cash_transfer_exp <- sum(`Direct Cash Transfer to students`$scheme_expenditure)
+In_Kind_exp <- sum(`In-kind service delivery`$scheme_expenditure)
+Infra_exp <- sum(Infrastructure$scheme_expenditure)
+Inst_Grants_exp <- sum(`Institutional Grants`$scheme_expenditure)
+PA_exp <- sum(`Payments & Awards`$scheme_expenditure)
+others_exp <- sum(Others$scheme_expenditure)
+
+
+mode_of_transfer <- c("Cash","In-kind","Infrastructure","Inst.Grants","Payments&Awards","Others")
+share_of_expenditure <- c(cash_transfer_exp/total_exp*100,In_Kind_exp/total_exp*100,Infra_exp/total_exp*100,Inst_Grants_exp/total_exp*100,PA_exp/total_exp*100,others_exp/total_exp*100)
+
+share_modesoftransfer <- data.frame(mode_of_transfer,share_of_expenditure)
+share_modesoftransfer$share_of_expenditure <- round(share_modesoftransfer$share_of_expenditure, digits = 2)
+
+colnames(share_modesoftransfer)[which(names(share_modesoftransfer) == "share_of_expenditure")] <- "Expenditure(in %)"
+colnames(share_modesoftransfer)[which(names(share_modesoftransfer) == "mode_of_transfer")] <- "Mode of Transfer"
+datatable(share_modesoftransfer) 
+
+ggplot(data = share_modesoftransfer, aes(x = reorder(mode_of_transfer,share_of_expenditure), y = share_of_expenditure )) + geom_bar(width = 0.25, stat = 'identity',fill="yellow")+ theme(title = "width = 0.25")+ theme_classic()+ coord_flip()+ labs(title="Share of expenditure in each of the mode of benefit of transfer",x ="Mode of Transfer", y = "Expenditure(in %)")+geom_text(aes(label = mode_of_transfer), nudge_y= 20) + geom_text(aes(label=round(share_of_expenditure,2)), nudge_y = 50) + theme(axis.text = element_blank())
+
+```
+
+### Compare the expenditure across districts on the basis of modes of benefit of transfer.
+
+#### Direct Cash Transfer
+```{r}
+direct_cash <- aggregate(x = `Direct Cash Transfer to students`$scheme_expenditure,
+                       by= list(`Direct Cash Transfer to students`$district_number,`Direct Cash Transfer to students`$district_name),
+                       FUN=sum)
+colnames(direct_cash)[which(names(direct_cash) == "Group.1")] <- "District No"
+colnames(direct_cash)[which(names(direct_cash) == "Group.2")] <- "District Name"
+colnames(direct_cash)[which(names(direct_cash) == "x")] <- "Expenditure"
+
+totalexp_DC <- sum(direct_cash$Expenditure)
+share_exp = (direct_cash$Expenditure)/totalexp_DC*100
+direct_cash <- cbind(direct_cash, share_exp)
+direct_cash$share_exp <- round(direct_cash$share_exp, digits = 2)
+colnames(direct_cash)[which(names(direct_cash) == "share_exp")] <- "Expenditure(in %)"
+
+
+datatable(direct_cash)
+```
+
+#### In-Kind Delivery
+
+```{r}
+in_kind <- aggregate(x = `In-kind service delivery`$scheme_expenditure,
+                         by= list(`In-kind service delivery`$district_number,`In-kind service delivery`$district_name),
+                         FUN=sum)
+colnames(in_kind)[which(names(in_kind) == "Group.1")] <- "District No."
+colnames(in_kind)[which(names(in_kind) == "Group.2")] <- "District Name"
+colnames(in_kind)[which(names(in_kind) == "x")] <- "Expenditure"
+
+totalexp_IK <- sum(in_kind$Expenditure)
+share_exp = (in_kind$Expenditure)/totalexp_IK*100
+in_kind <- cbind(in_kind, share_exp)
+
+in_kind$share_exp <- round(in_kind$share_exp, digits = 2)
+colnames(in_kind)[which(names(in_kind) == "share_exp")] <- "Expenditure(in %)"
+
+datatable(in_kind)
+```
+
+#### Infrastructure
+
+```{r}
+Infra <- aggregate(x = Infrastructure$scheme_expenditure,
+                     by= list(Infrastructure$district_number,Infrastructure$district_name),
+                     FUN=sum)
+colnames(Infra)[which(names(Infra) == "Group.1")] <- "District No."
+colnames(Infra)[which(names(Infra) == "Group.2")] <- "District Name"
+colnames(Infra)[which(names(Infra) == "x")] <- "Expenditure"
+
+totalexp_Inf <- sum(Infra$Expenditure)
+share_exp = (Infra$Expenditure)/totalexp_Inf*100
+Infra <- cbind(Infra,share_exp)
+
+Infra$share_exp <- round(Infra$share_exp, digits = 2)
+colnames(Infra)[which(names(Infra) == "share_exp")] <- "Expenditure(in %)"
+datatable(Infra)
+```
+
+#### Instritutional Grants
+
+```{r}
+Inst.Grants <- aggregate(x = `Institutional Grants`$scheme_expenditure,
+                     by= list(`Institutional Grants`$district_number,`Institutional Grants`$district_name),
+                     FUN=sum)
+colnames(Inst.Grants)[which(names(Inst.Grants) == "Group.1")] <- "District No."
+colnames(Inst.Grants)[which(names(Inst.Grants) == "Group.2")] <- "District Name"
+colnames(Inst.Grants)[which(names(Inst.Grants) == "x")] <- "Expenditure"
+
+totalexp_Inst <- sum(Inst.Grants$Expenditure)
+share_exp = (Inst.Grants$Expenditure)/totalexp_Inst*100
+Inst.Grants <- cbind(Inst.Grants,share_exp)
+
+Inst.Grants$share_exp <- round(Inst.Grants$share_exp,digits = 2)
+colnames(Inst.Grants)[which(names(Inst.Grants) == "share_exp")] <- "Expenditure(in %)"
+datatable(Inst.Grants)
+```
+
+#### Other Modes of Transfer
+
+```{r}
+OtherModes <- aggregate(x = Others$scheme_expenditure,
+                     by= list(Others$district_number,Others$district_name),
+                     FUN=sum)
+colnames(OtherModes)[which(names(OtherModes) == "Group.1")] <- "District No."
+colnames(OtherModes)[which(names(OtherModes) == "Group.2")] <- "District Name"
+colnames(OtherModes)[which(names(OtherModes) == "x")] <- "Expenditure"
+
+totalexp_oth <- sum(OtherModes$Expenditure)
+share_exp = (OtherModes$Expenditure)/totalexp_oth*100
+OtherModes <- cbind(OtherModes,share_exp)
+
+OtherModes$share_exp <- round(OtherModes$share_exp,digits = 2)
+colnames(OtherModes)[which(names(OtherModes) == "share_exp")] <- "Expenditure(in %)"
+datatable(OtherModes)
+```
+
+#### Payments and Awards
+
+```{r}
+Payments_Awards <- aggregate(x = `Payments & Awards`$scheme_expenditure,
+                     by= list(`Payments & Awards`$district_number,`Payments & Awards`$district_name),
+                     FUN=sum)
+colnames(Payments_Awards)[which(names(Payments_Awards) == "Group.1")] <- "District No."
+colnames(Payments_Awards)[which(names(Payments_Awards) == "Group.2")] <- "District Name"
+colnames(Payments_Awards)[which(names(Payments_Awards) == "x")] <- "Expenditure"
+
+totalexp_payA <- sum(Payments_Awards$Expenditure)
+share_exp = (Payments_Awards$Expenditure)/totalexp_payA*100
+Payments_Awards <- cbind(Payments_Awards,share_exp)
+
+Payments_Awards$share_exp <- round(Payments_Awards$share_exp,digits = 2)
+colnames(Payments_Awards)[which(names(Payments_Awards) == "share_exp")] <- "Expenditure(in %)"
+datatable(Payments_Awards)
+```
+
+
+

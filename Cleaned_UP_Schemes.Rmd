@@ -1,0 +1,87 @@
+---
+title: "Cleaned_UP_Schemes"
+author: "Rodoshee Das"
+output:
+  html_document: 
+    code_folding: hide
+    anchor_sections: FALSE
+    toc: yes
+    df_print: tibble
+  pdf_document: default
+  word_document: default
+---
+
+
+```{r message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(comment = NA)
+```
+
+
+### Loading the two datasheets.
+
+```{r,results='hide',message=FALSE,warning=FALSE}
+
+library(readxl)
+library(dplyr)
+library(DT)
+library(writexl)
+
+setwd("C:/Users/Admin/Downloads/CivicDataLab/tasks")
+haq_data_renamed <- read_excel("haq_data_renamed.xlsx")
+haq_unique_schemes <- read_excel("haq_unique_schemes.xlsx")
+
+```
+
+
+### Merge the two datasheets based on the unique scheme codes
+
+```{r,message=FALSE,warning=FALSE}
+
+haq_final <- merge(haq_data_renamed,haq_unique_schemes,by="scheme_code")
+
+```
+
+### Remove the columns which aren't required for further analysis.
+
+```{r,message=FALSE,warning=FALSE}
+
+haq_final$major_head <- NULL
+haq_final$`sub-major_head`<- NULL
+haq_final$...11 <- NULL
+haq_final$`Classification of Schemes`<- NULL
+haq_final$scheme_name.y <- NULL
+haq_final$scheme_name.x <- NULL
+haq_final$grant_number.y <- NULL
+haq_final$grant_name.y <- NULL
+```
+
+### Omit all the null values
+
+```{r,results='hide',message=FALSE,warning=FALSE}
+haq_final <- na.omit(haq_final)
+```
+
+### Rearrange the columns for clarity of data.
+
+```{r,message=FALSE,warning=FALSE}
+col_order <- c("scheme_code","Google Translation","Classification of the type of Scheme","Mode of Benefit Transfer","scheme_allotment","scheme_expenditure","scheme_utilisation","district_name","ddo_name","grant_number.x","fiscal_year","district_number","ddo_number","grant_name.x","division_name")
+
+haq_final <- haq_final[,col_order]
+
+```
+
+### Give the columns a proper name.
+```{r}
+colnames(haq_final)[which(names(haq_final) == "Google Translation")] <- "scheme_name"
+colnames(haq_final)[which(names(haq_final) == "grant_number.x")] <- "grant_number"
+colnames(haq_final)[which(names(haq_final) == "grant_name.x")] <- "grant_name"
+```
+
+
+### Download the cleaned data frame in an excel datasheet.
+
+```{r}
+write_xlsx(haq_final,"haq_final.xlsx")
+
+```
+
